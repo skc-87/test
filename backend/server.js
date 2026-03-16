@@ -18,7 +18,9 @@ if (!process.env.JWT_SECRET) { console.error("FATAL: JWT_SECRET is not set in en
 if (!process.env.MONGO_URI) { console.error("FATAL: MONGO_URI is not set in environment. Exiting."); process.exit(1); }
 connectDB();
 const app = express();
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: false,
+}));
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, max: 500, standardHeaders: true, legacyHeaders: false,
   message: { message: "Too many requests, please try again later." },
