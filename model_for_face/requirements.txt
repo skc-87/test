@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+deepface
+numpy
+opencv-python
+Pillow
+PyJWT
+python-dotenv
+tensorflow-cpu

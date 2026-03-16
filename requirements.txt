@@ -1,0 +1,11 @@
+deepface
+numpy
+opencv-python
+Pillow
+PyJWT
+PyMuPDF
+pymongo
+python-dotenv
+scikit-learn
+torch
+torchvision

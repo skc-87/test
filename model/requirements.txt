@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+numpy
+opencv-python
+Pillow
+PyMuPDF
+pymongo
+python-dotenv
+torch
+torchvision

@@ -1,0 +1,6 @@
+model/
+model_for_face/
+model_for_matching/
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
