@@ -1,9 +1,9 @@
 fastapi
 uvicorn
 deepface
-numpy
+numpy<2
 opencv-python
 Pillow
 PyJWT
 python-dotenv
-tensorflow-cpu
+tensorflow-cpu==2.15.0
