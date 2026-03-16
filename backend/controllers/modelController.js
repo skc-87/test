@@ -136,4 +136,4 @@ const modelController = {
   }
 };
 
-module.exports = { modelController, runPythonScript, getFriendlyErrorMessage, deleteAssignmentFromDB };
+module.exports = { modelController, getFriendlyErrorMessage, deleteAssignmentFromDB };
