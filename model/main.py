@@ -82,10 +82,24 @@ def run_script(script_path: str, args: list[str], auth_token: Optional[str], tim
             return {"status": "error", "message": "out_of_memory"}
         return {"status": "error", "message": "empty_response"}
 
+    # Extract the JSON line from output.
+    # stdout can contain extra lines (e.g. torch model download progress)
+    # mixed in with the actual JSON result — find the first line starting with '{'
+    json_line = None
+    for line in output.splitlines():
+        line = line.strip()
+        if line.startswith("{"):
+            json_line = line
+            break
+
+    if not json_line:
+        print(f"[run_script] No JSON found in output: {output[:300]}", flush=True)
+        return {"status": "error", "message": "invalid_response"}
+
     try:
-        return json.loads(output)
+        return json.loads(json_line)
     except json.JSONDecodeError:
-        print(f"[run_script] Invalid JSON output: {output[:300]}", flush=True)
+        print(f"[run_script] Failed to parse JSON: {json_line[:300]}", flush=True)
         return {"status": "error", "message": "invalid_response"}
 
 

@@ -1,6 +1,11 @@
 import sys
 import io
 import os
+
+# Disable tqdm progress bars — prevents download % lines from polluting stdout
+# which would break JSON parsing in main.py
+os.environ["TQDM_DISABLE"] = "1"
+
 import re
 import cv2
 import numpy as np
