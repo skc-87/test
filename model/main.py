@@ -76,9 +76,14 @@ def run_script(script_path: str, args: list[str], auth_token: Optional[str], tim
     if stderr:
         print(f"[run_script stderr]:\n{stderr}", flush=True)
 
+    # Log exit code — returncode -9 means OOM kill by OS
+    print(f"[run_script] exit code: {result.returncode}", flush=True)
+
     output = (result.stdout or "").strip()
     if not output:
         print("[run_script] Empty stdout.", flush=True)
+        if result.returncode == -9:
+            return {"status": "error", "message": "out_of_memory"}
         return {"status": "error", "message": "empty_response"}
 
     try:
