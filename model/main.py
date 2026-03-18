@@ -4,15 +4,11 @@ import subprocess
 import sys
 from typing import Optional
 
-# Limit PyTorch threads to reduce memory usage on Render free tier (512MB RAM)
+# Limit PyTorch threads in child processes — DO NOT import torch here,
+# importing torch in the FastAPI process itself uses ~300MB RAM on startup
+# which crashes Render free tier (512MB total). Scripts handle torch directly.
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
-
-try:
-    import torch
-    torch.set_num_threads(1)
-except ImportError:
-    pass  # torch not imported here directly, scripts handle it
 
 from fastapi import FastAPI, Header
 from fastapi.middleware.cors import CORSMiddleware
@@ -56,7 +52,7 @@ def run_script(script_path: str, args: list[str], auth_token: Optional[str], tim
     if auth_token:
         env["AUTH_TOKEN"] = auth_token
 
-    # Pass thread limits to child scripts too
+    # Pass thread limits to child scripts
     env["OMP_NUM_THREADS"] = "1"
     env["MKL_NUM_THREADS"] = "1"
 
