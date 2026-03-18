@@ -31,7 +31,24 @@ const callHandwritingService = async (endpoint, payload, authToken, timeoutMs = 
       },
       body: JSON.stringify(payload || {}),
     }, timeoutMs);
-    const data = await response.json().catch(() => ({ status: "error", message: "Invalid response from handwriting service." }));
+
+    // Read raw text first so we can log it if JSON parsing fails
+    const text = await response.text();
+    console.log(`[Model Service] ${endpoint} → HTTP ${response.status} | Body: ${text.slice(0, 300)}`);
+
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return { status: "error", message: "Invalid response from handwriting service." };
+    }
+
+    // Normalize FastAPI's { detail: "..." } format to { status, message }
+    if (data.detail !== undefined && !data.status) {
+      data.status = "error";
+      data.message = typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail);
+    }
+
     return data;
   } catch (error) {
     if (error.name === "AbortError") {
@@ -53,7 +70,7 @@ const getFriendlyErrorMessage = (errorCode) => {
     "invalid_status": "Invalid status value. Must be 'Present' or 'Absent'.",
     "update_failed": "Failed to update attendance record.",
   };
-  return errorMessages[errorCode] || errorCode.replace(/_/g, " ") || "An unknown error occurred.";
+  return errorMessages[errorCode] || (errorCode || "").replace(/_/g, " ") || "An unknown error occurred.";
 };
 
 async function deleteAssignmentFromDB(studentId) {
@@ -98,6 +115,7 @@ const modelController = {
   compareHandwriting: async (req, res) => {
     const { studentId } = req.params;
     const authToken = req.headers.authorization?.split(" ")[1];
+
     if (!authToken || !studentId) {
       return res.status(400).json({ status: "error", message: "Missing student ID or token" });
     }
@@ -107,33 +125,73 @@ const modelController = {
     if (req.user.role === "student" && req.user.id !== studentId) {
       return res.status(403).json({ status: "error", message: "You can only compare your own handwriting." });
     }
+
     try {
       console.log(`[Step 1/2] Fetching files for student: ${studentId}`);
       const fetchResult = await callHandwritingService("/fetch-files", { student_id: studentId, fileCategory: "all" }, authToken, 60000);
+
       if (fetchResult.status !== "success") {
-        const isMissingSample = (fetchResult.message || "").toLowerCase().includes("handwriting_sample_not_found")
-          || (fetchResult.message || "").toLowerCase().includes("handwriting sample not found");
+        const msg = (fetchResult.message || "").toLowerCase();
+        const isMissingSample =
+          msg.includes("handwriting_sample_not_found") ||
+          msg.includes("handwriting sample not found");
+
         let deleted = false;
-        if (!isMissingSample) { await deleteAssignmentFromDB(studentId); deleted = true; }
-        return res.status(400).json({ status: fetchResult.status || "error", message: fetchResult.message || "File fetch failed.", deleted, ...fetchResult });
+        if (!isMissingSample) {
+          await deleteAssignmentFromDB(studentId);
+          deleted = true;
+        }
+
+        return res.status(400).json({
+          status: fetchResult.status || "error",
+          message: getFriendlyErrorMessage(fetchResult.message) || "File fetch failed.",
+          deleted,
+          ...fetchResult,
+        });
       }
+
       console.log(`[Step 2/2] Comparing handwriting for student: ${studentId}`);
       const compareResult = await callHandwritingService("/compare-handwriting", { student_id: studentId }, authToken, 120000);
-      if (compareResult.status === "success" && !compareResult.matched) {
+
+      // Mismatch — comparison ran successfully but handwriting didn't match
+      if (compareResult.status === "success" && compareResult.matched === false) {
         await deleteAssignmentFromDB(studentId);
-        return res.status(400).json({ status: "mismatch", message: compareResult.message || "Handwriting mismatch. Assignment deleted.", deleted: true, ...compareResult });
+        return res.status(200).json({
+          status: "mismatch",
+          message: compareResult.message || "Handwriting mismatch detected. Assignment deleted.",
+          deleted: true,
+          ...compareResult,
+        });
       }
+
+      // Comparison failed for another reason
       if (compareResult.status !== "success") {
         await deleteAssignmentFromDB(studentId);
-        return res.status(400).json({ status: compareResult.status || "error", message: compareResult.message || "Handwriting comparison failed.", deleted: true, ...compareResult });
+        return res.status(400).json({
+          status: compareResult.status || "error",
+          message: getFriendlyErrorMessage(compareResult.message) || "Handwriting comparison failed.",
+          deleted: true,
+          ...compareResult,
+        });
       }
-      return res.json({ status: "success", message: "Handwriting comparison completed successfully", ...compareResult });
+
+      // Full success
+      return res.status(200).json({
+        status: "success",
+        message: "Handwriting comparison completed successfully",
+        ...compareResult,
+      });
+
     } catch (error) {
       console.error(`[Error] Compare handwriting failed for student ${studentId}:`, error.message);
       await deleteAssignmentFromDB(studentId);
-      return res.status(500).json({ status: "error", message: "Unexpected server error during handwriting comparison.", deleted: true });
+      return res.status(500).json({
+        status: "error",
+        message: "Unexpected server error during handwriting comparison.",
+        deleted: true,
+      });
     }
-  }
+  },
 };
 
 module.exports = { modelController, getFriendlyErrorMessage, deleteAssignmentFromDB };

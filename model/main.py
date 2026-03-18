@@ -4,8 +4,9 @@ import subprocess
 import sys
 from typing import Optional
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -57,11 +58,14 @@ def run_script(script_path: str, args: list[str], auth_token: Optional[str], tim
 
     output = (result.stdout or "").strip()
     if not output:
+        stderr = (result.stderr or "").strip()
+        print(f"[run_script] Empty stdout. stderr: {stderr[0:300]}")
         return {"status": "error", "message": "empty_response"}
 
     try:
         return json.loads(output)
     except json.JSONDecodeError:
+        print(f"[run_script] Invalid JSON output: {output[0:300]}")
         return {"status": "error", "message": "invalid_response"}
 
 
@@ -73,7 +77,10 @@ def health_check():
 @app.post("/fetch-files")
 def fetch_files(payload: FetchFilesRequest, authorization: Optional[str] = Header(default=None)):
     if not authorization:
-        raise HTTPException(status_code=401, detail="Missing Authorization header")
+        return JSONResponse(
+            status_code=401,
+            content={"status": "error", "message": "Missing Authorization header"}
+        )
     auth_token = authorization.split(" ")[-1]
     result = run_script(
         FETCH_SCRIPT,
@@ -82,14 +89,20 @@ def fetch_files(payload: FetchFilesRequest, authorization: Optional[str] = Heade
         timeout_seconds=60,
     )
     if result.get("status") != "success":
-        raise HTTPException(status_code=400, detail=result.get("message", "File fetch failed"))
-    return result
+        return JSONResponse(
+            status_code=400,
+            content={"status": "error", "message": result.get("message", "File fetch failed")}
+        )
+    return JSONResponse(status_code=200, content=result)
 
 
 @app.post("/compare-handwriting")
 def compare_handwriting(payload: CompareRequest, authorization: Optional[str] = Header(default=None)):
     if not authorization:
-        raise HTTPException(status_code=401, detail="Missing Authorization header")
+        return JSONResponse(
+            status_code=401,
+            content={"status": "error", "message": "Missing Authorization header"}
+        )
     auth_token = authorization.split(" ")[-1]
     result = run_script(
         COMPARE_SCRIPT,
@@ -98,5 +111,8 @@ def compare_handwriting(payload: CompareRequest, authorization: Optional[str] = 
         timeout_seconds=120,
     )
     if result.get("status") != "success":
-        raise HTTPException(status_code=400, detail=result.get("message", "Comparison failed"))
-    return result
+        return JSONResponse(
+            status_code=400,
+            content={"status": "error", "message": result.get("message", "Comparison failed")}
+        )
+    return JSONResponse(status_code=200, content=result)
