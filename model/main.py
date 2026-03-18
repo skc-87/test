@@ -4,6 +4,16 @@ import subprocess
 import sys
 from typing import Optional
 
+# Limit PyTorch threads to reduce memory usage on Render free tier (512MB RAM)
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+
+try:
+    import torch
+    torch.set_num_threads(1)
+except ImportError:
+    pass  # torch not imported here directly, scripts handle it
+
 from fastapi import FastAPI, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -45,6 +55,11 @@ def run_script(script_path: str, args: list[str], auth_token: Optional[str], tim
     env = os.environ.copy()
     if auth_token:
         env["AUTH_TOKEN"] = auth_token
+
+    # Pass thread limits to child scripts too
+    env["OMP_NUM_THREADS"] = "1"
+    env["MKL_NUM_THREADS"] = "1"
+
     try:
         result = subprocess.run(
             [sys.executable, script_path, *args],
@@ -56,16 +71,20 @@ def run_script(script_path: str, args: list[str], auth_token: Optional[str], tim
     except subprocess.TimeoutExpired:
         return {"status": "error", "message": "service_timeout"}
 
+    # Always log stderr so errors show in Render logs
+    stderr = (result.stderr or "").strip()
+    if stderr:
+        print(f"[run_script stderr]:\n{stderr}", flush=True)
+
     output = (result.stdout or "").strip()
     if not output:
-        stderr = (result.stderr or "").strip()
-        print(f"[run_script] Empty stdout. stderr: {stderr[0:300]}")
+        print("[run_script] Empty stdout.", flush=True)
         return {"status": "error", "message": "empty_response"}
 
     try:
         return json.loads(output)
     except json.JSONDecodeError:
-        print(f"[run_script] Invalid JSON output: {output[0:300]}")
+        print(f"[run_script] Invalid JSON output: {output[:300]}", flush=True)
         return {"status": "error", "message": "invalid_response"}
 
 
