@@ -22,6 +22,7 @@ if (!process.env.MONGO_URI) { console.error("FATAL: MONGO_URI is not set in envi
 connectDB();
 
 const app = express();
+app.set('trust proxy', 1); // Required for Render — fixes express-rate-limit X-Forwarded-For error
 
 app.use(helmet({
   crossOriginResourcePolicy: false,
