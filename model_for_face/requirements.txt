@@ -1,9 +1,11 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
 fastapi
 uvicorn
-deepface
-numpy>=1.23.0,<2.0.0
-opencv-python
+numpy
+opencv-python-headless
 Pillow
-PyJWT
+PyMuPDF
+pymongo
 python-dotenv
-tensorflow-cpu>=2.15.0,<2.17.0
+torch==2.1.0+cpu
+torchvision==0.16.0+cpu
