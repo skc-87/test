@@ -147,7 +147,6 @@ def register_face(payload: RegisterFaceRequest, authorization: Optional[str] = H
         return JSONResponse(status_code=400, content={"success": False, "message": result.get("message", "Registration failed")})
     return JSONResponse(status_code=200, content=result)
 
-
 @app.post("/take-attendance")
 def take_attendance(payload: AttendanceRequest, authorization: Optional[str] = Header(default=None)):
     if not authorization:
