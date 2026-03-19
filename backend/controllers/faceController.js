@@ -30,7 +30,24 @@ const callFaceService = async (endpoint, payload, authToken, timeoutMs = 60000) 
       },
       body: JSON.stringify(payload || {}),
     }, timeoutMs);
-    const data = await response.json().catch(() => ({ success: false, message: "Invalid response from face service." }));
+
+    // Read raw text first so we can log it if JSON parsing fails
+    const text = await response.text();
+    console.log(`[Face Service] ${endpoint} → HTTP ${response.status} | Body: ${text.slice(0, 300)}`);
+
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return { success: false, message: "Invalid response from face service." };
+    }
+
+    // Normalize FastAPI's { detail: "..." } to { success, message }
+    if (data.detail !== undefined && data.success === undefined) {
+      data.success = false;
+      data.message = typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail);
+    }
+
     return data;
   } catch (error) {
     if (error.name === "AbortError") {
@@ -61,9 +78,6 @@ const faceController = {
       }
       if (!VALID_IMAGE_REGEX.test(image)) {
         return res.status(400).json({ success: false, message: "Invalid image" });
-      }
-      if (!mongoose.Types.ObjectId.isValid(student_id)) {
-        return res.status(400).json({ success: false, message: "Invalid student ID. Please use the student's system ID." });
       }
       const studentUser = await User.findOne({ _id: student_id, role: "student", status: "approved" });
       if (!studentUser) {
