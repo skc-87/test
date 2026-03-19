@@ -6,4 +6,5 @@ Pillow
 pymongo
 python-dotenv
 PyJWT
-face-recognition
+deepface
+tf-keras
