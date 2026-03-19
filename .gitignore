@@ -64,3 +64,5 @@ __pycache__/
 /model_for_face/attendance.csv
 
 backend/.env
+
+/model/.torch_cache/
