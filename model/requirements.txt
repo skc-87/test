@@ -1,10 +1,11 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
 fastapi
 uvicorn
 numpy
-opencv-python
+opencv-python-headless
 Pillow
 PyMuPDF
 pymongo
 python-dotenv
-torch
-torchvision
+torch==2.1.0+cpu
+torchvision==0.16.0+cpu
